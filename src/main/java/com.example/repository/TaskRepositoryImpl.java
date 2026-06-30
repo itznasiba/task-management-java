@@ -1,5 +1,6 @@
 package com.example.repository;
 
+import com.example.model.Role;
 import com.example.model.Status;
 import com.example.model.Task;
 import com.example.model.User;
@@ -68,16 +69,23 @@ public class TaskRepositoryImpl implements TaskRepository {
     }
     // get tasks by user id
     public List<Task> getTasksByUserId(long userId){
-        String sql="SELECT*FROM tasks WHERE user_id=?";
+        String sql="SELECT t.id AS task_id, t.title, t.description, t.status AS task_status, "+
+                "u.id AS user_id, u.name AS user_name, u.email AS user_email, u.role AS user_role "+
+                "FROM tasks t "+"INNER JOIN users u ON t.user_id = u.id "+
+                " WHERE t.user_id = ?";
         return jdbcTemplate.query(sql,(rs, rowNum) -> {
             Task task =new Task();
-            task.setId(rs.getLong("id"));
+            task.setId(rs.getLong("task_id"));
             task.setTitle(rs.getString("title"));
             task.setDescription(rs.getString("description"));
-            task.setStatus(Status.valueOf(rs.getString("status")));
+            task.setStatus(Status.valueOf(rs.getString("task_status")));
 
            User user = new User();
-           user.setId(userId);
+            user.setId(rs.getLong("user_id"));
+            user.setName(rs.getString("user_name"));
+            user.setEmail(rs.getString("user_email"));
+            user.setRole(Role.valueOf(rs.getString("user_role")));
+
            task.setAssignedUser(user);
            return task;
         },userId);
