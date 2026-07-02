@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import static com.example.model.Status.NOT_STARTED;
+
 @Repository
 public class TaskRepositoryImpl implements TaskRepository {
     private final JdbcTemplate jdbcTemplate;
@@ -21,25 +23,31 @@ public class TaskRepositoryImpl implements TaskRepository {
 
     // adding new task
     public void save(Task task) {
-        String sql = "INSERT INTO tasks(title,description,status,user_id)VALUES(?,?,?,?)";
+        String sql = "INSERT INTO tasks(title,description,status,user_id)VALUES(?,?,'NOT_STARTED',?)";
         Long user_id = (task.getAssignedUser() != null) ? task.getAssignedUser().getId() : null;
-        jdbcTemplate.update(sql, task.getTitle(), task.getDescription(), task.getStatus().name(), user_id);
+        jdbcTemplate.update(sql, task.getTitle(), task.getDescription(public), user_id);
     }
 
     // get task by id
     public Optional<Task> findById(long id) {
-        String sql = "SELECT*FROM tasks WHERE id=?";
+        String sql = "SELECT t.id AS task_id, t.title, t.description, t.status AS task_status, " +
+                "u.id AS user_id, u.name AS user_name, u.email AS user_email, u.role AS user_role " +
+                "FROM tasks t "+"LEFT JOIN  users u ON t.user_id=u.id "+
+                "WHERE t.id=?";
         List<Task> tasks = jdbcTemplate.query(sql, (rs, rowNum) -> {
             Task task = new Task();
-            task.setId(rs.getLong("id"));
+            task.setId(rs.getLong("task_id"));
             task.setTitle(rs.getString("title"));
             task.setDescription(rs.getString("description"));
-            task.setStatus(Status.valueOf(rs.getString("status")));
+            task.setStatus(Status.valueOf(rs.getString("task_status")));
 
             long userId =rs.getLong("user_id");
             if(userId>0){
                 User user = new User();
                 user.setId(userId);
+                user.setName(rs.getString("user_name"));
+                user.setEmail(rs.getString("user_email"));
+                user.setRole(Role.valueOf(rs.getString("user_role")));
                 task.setAssignedUser(user);
             }
             return task;
@@ -49,19 +57,25 @@ public class TaskRepositoryImpl implements TaskRepository {
     // get all tasks
 
     public List<Task> findAll(){
-        String sql="SELECT*FROM tasks";
+        String sql="SELECT t.id AS task_id, t.title, t.description, t.status AS task_status, "+
+                " u.id AS user_id, u.name AS user_name, u.email AS user_email, u.role AS user_role "+
+                " FROM tasks t "+" LEFT JOIN users u ON t.user_id = u.id ";
+
         return jdbcTemplate.query(sql,(rs, rowNum) -> {
             Task task=new Task();
-            task.setId(rs.getLong("id"));
+            task.setId(rs.getLong("task_id"));
             task.setTitle(rs.getString("title"));
             task.setDescription(rs.getString("description"));
-            task.setStatus(Status.valueOf(rs.getString("status")));
+            task.setStatus(Status.valueOf(rs.getString("task_status")));
             //task.setId(rs.getLong("assignedUser"));
 
             long userId=rs.getLong("user_id");
             if(userId>0){
                 User user=new User();
                 user.setId(userId);
+                user.setName(rs.getString("user_name"));
+                user.setEmail(rs.getString("user_email"));
+                user.setRole(Role.valueOf(rs.getString("user_role")));
                 task.setAssignedUser(user);
             }
             return task;
@@ -69,9 +83,9 @@ public class TaskRepositoryImpl implements TaskRepository {
     }
     // get tasks by user id
     public List<Task> getTasksByUserId(long userId){
-        String sql="SELECT t.id AS task_id, t.title, t.description, t.status AS task_status, "+
-                "u.id AS user_id, u.name AS user_name, u.email AS user_email, u.role AS user_role "+
-                "FROM tasks t "+"INNER JOIN users u ON t.user_id = u.id "+
+        String sql=" SELECT t.id AS task_id, t.title, t.description, t.status AS task_status, "+
+                " u.id AS user_id, u.name AS user_name, u.email AS user_email, u.role AS user_role "+
+                " FROM tasks t "+" LEFT JOIN users u ON t.user_id = u.id "+
                 " WHERE t.user_id = ?";
         return jdbcTemplate.query(sql,(rs, rowNum) -> {
             Task task =new Task();
@@ -91,12 +105,12 @@ public class TaskRepositoryImpl implements TaskRepository {
         },userId);
 
     }
-        // delete task
+    // delete task
     public void deleteById(long id){
         String sql="DELETE FROM tasks WHERE id=?";
         jdbcTemplate.update(sql,id);
     }
-        //edit task(change status of task)
+    //edit task(change status of task)
     public void updateStatus(long id, Status status){
         String sql="UPDATE tasks SET status=? WHERE id =?";
         jdbcTemplate.update(sql, status.name(),id);
